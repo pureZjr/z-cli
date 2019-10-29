@@ -1,0 +1,109 @@
+#!/usr/bin/env node
+
+const program = require('commander')
+const path = require('path')
+const fs = require('fs')
+const glob = require('glob')
+const inquirer = require('inquirer')
+const chalk = require('chalk')
+
+const download = require('../lib/download')
+const generator = require('../lib/generator')
+
+program.usage('<project-name>').parse(process.argv)
+
+// 根据输入，获取项目名称
+let projectName = program.args[0]
+
+// project-name 必填
+if (!projectName) {
+    // 相当于执行命令的--help选项，显示help信息，这是commander内置的一个命令选项
+    program.help()
+    return
+}
+
+// 遍历当前目录
+const directory = glob.sync('*')
+// 要创建项目的根目录
+let projectRootName = path.basename(process.cwd())
+let next = undefined
+
+// 如果当前目录不为空
+if (!!directory.length) {
+    // 查看是否存在相同名字的文件夹
+    const folder = directory.filter(name => {
+        return name === projectName
+    })
+    if (!!folder.length) {
+        console.log(`项目${projectName}已经存在`)
+        return
+    }
+    next = Promise.resolve(projectName)
+    projectRootName = projectName
+} else if (projectRootName === projectName) {
+    // 当前目录名称根需要创建的项目名称相等，并且当前目录是空的
+    next = inquirer
+        .prompt([
+            {
+                name: 'buildInCurrent',
+                message: '当前目录为空，且目录名称和项目名称相同，是否直接在当前目录下创建新项目？',
+                type: 'confirm',
+                default: true
+            }
+        ])
+        .then(answer => {
+            return Promise.resolve(answer.buildInCurrent ? '.' : projectName)
+        })
+} else {
+    next = Promise.resolve(projectName)
+}
+
+next && run()
+
+// 处理子命令
+function run() {
+    next.then(projectRoot => {
+        if (projectRoot !== '.') {
+            fs.mkdirSync(projectRoot)
+        }
+        return download(projectRoot).then(target => {
+            return {
+                name: projectRoot,
+                downloadTemp: target
+            }
+        })
+    }).then(context => {
+        return inquirer
+            .prompt([
+                {
+                    name: 'projectName',
+                    message: '项目的名称',
+                    default: context.name
+                },
+                {
+                    name: 'projectVersion',
+                    message: '项目的版本号',
+                    default: '1.0.0'
+                },
+                {
+                    name: 'projectDescription',
+                    message: '项目的简介',
+                    default: `A project named ${context.name}`
+                }
+            ])
+            .then(answers => {
+                const info = {
+                    ...context,
+                    metadata: { ...answers }
+                }
+                return generator(info.metadata, info.downloadTemp, path.parse(info.downloadTemp).dir)
+            })
+            .then(context => {
+                console.log('创建成功')
+            })
+            .catch(err => {
+                // @ts-ignore
+                console.log(chalk.red(`found faild：${err.message}`))
+            })
+    })
+}
