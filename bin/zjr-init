@@ -9,6 +9,7 @@ const chalk = require('chalk')
 
 const download = require('../lib/download')
 const generator = require('../lib/generator')
+const url = require('../tpl')
 
 program.usage('<project-name>').parse(process.argv)
 
@@ -63,15 +64,7 @@ next && run()
 // 处理子命令
 function run() {
     next.then(projectRoot => {
-        if (projectRoot !== '.') {
-            fs.mkdirSync(projectRoot)
-        }
-        return download(projectRoot).then(target => {
-            return {
-                name: projectRoot,
-                downloadTemp: target
-            }
-        })
+        return { name: projectRoot }
     }).then(context => {
         return inquirer
             .prompt([
@@ -79,6 +72,13 @@ function run() {
                     name: 'projectName',
                     message: '项目的名称',
                     default: context.name
+                },
+                {
+                    name: 'projectType',
+                    message: '项目的类型',
+                    type: 'list',
+                    choices: ['web', 'miniapp'],
+                    default: 'web'
                 },
                 {
                     name: 'projectVersion',
@@ -92,14 +92,27 @@ function run() {
                 }
             ])
             .then(answers => {
-                const info = {
-                    ...context,
-                    metadata: { ...answers }
+                let tplUrl
+                if (answers.projectType === 'web') {
+                    tplUrl = url.web
+                } else {
+                    tplUrl = url.miniapp
                 }
-                return generator(info.metadata, info.downloadTemp, path.parse(info.downloadTemp).dir)
+                if (context.name !== '.') {
+                    fs.mkdirSync(context.name)
+                }
+                return download(context.name, tplUrl).then(target => {
+                    return {
+                        downloadTemp: target,
+                        answers
+                    }
+                })
+            })
+            .then(info => {
+                return generator({ ...info.answers }, info.downloadTemp, path.parse(info.downloadTemp).dir)
             })
             .then(context => {
-                console.log('创建成功')
+                console.log(context)
             })
             .catch(err => {
                 // @ts-ignore
