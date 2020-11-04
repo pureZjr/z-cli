@@ -1,6 +1,6 @@
 {
     "name": "zjr-cli",
-    "version": "1.0.0-10",
+    "version": "1.0.0",
     "description": "zjr-cli",
     "bin": {
         "zjr": "./bin/zjr",
