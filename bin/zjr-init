@@ -76,8 +76,8 @@ function run() {
                         name: "projectType",
                         message: "项目的类型",
                         type: "list",
-                        choices: ["web", "vue", "miniapp"],
-                        default: "web",
+                        choices: ["react", "vue", "miniapp"],
+                        default: "react",
                     },
                     {
                         name: "projectVersion",
@@ -93,7 +93,7 @@ function run() {
                 .then((answers) => {
                     let tplUrl;
                     if (answers.projectType === "react") {
-                        tplUrl = url.web;
+                        tplUrl = url.react;
                     } else if (answers.projectType === "vue") {
                         tplUrl = url.vue;
                     } else {
